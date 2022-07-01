@@ -22,6 +22,7 @@ func main() {
 
 	fmt.Println(p.GetValue("test"))
 	fmt.Println(p.GetValue("foo"))
+	fmt.Println(p.GetValue("nonexistent"))
 
 	updates, _ := p.GetUpdates(0)
 	entries, err := json.MarshalIndent(updates, "", " ")
