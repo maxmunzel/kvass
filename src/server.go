@@ -2,7 +2,6 @@ package kvass
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 )
@@ -26,8 +25,6 @@ func RunServer(p Persistance) {
 		for _, e := range entries {
 			p.UpdateOn(e)
 		}
-
-		fmt.Println(p)
 
 	})
 	http.HandleFunc("/pull", func(w http.ResponseWriter, r *http.Request) {
