@@ -102,11 +102,19 @@ func main() {
 			}
 			return 0
 		})
+
+	serve := cli.NewCommand("serve", "start in server mode").
+		WithAction(func(args []string, options map[string]string) int {
+			p := kvass.NewDummyPersistance()
+			kvass.RunServer(p)
+			return 0
+		})
+
 	app := cli.New("kvass - a personal KV store").
 		WithArg(cli.NewArg("host", "the server to sync with").AsOptional()).
 		WithCommand(get).
-		WithCommand(set)
-
+		WithCommand(set).
+		WithCommand(serve)
 	os.Exit(app.Run(os.Args, os.Stdout))
 
 }
