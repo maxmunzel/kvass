@@ -56,6 +56,7 @@ type Persistance interface {
 	GetUpdates(startUnixMicros int64) ([]KvEntry, error)
 	GetValue(key string) (ValueType, error)
 	GetCounter() (int64, error)
+	Close() error
 }
 
 func Set(p Persistance, key string, value ValueType) error {

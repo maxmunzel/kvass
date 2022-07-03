@@ -12,6 +12,10 @@ type dummyPersistance struct {
 	entries map[string]KvEntry
 }
 
+func (d *dummyPersistance) Close() error {
+	return nil
+}
+
 func (d *dummyPersistance) GetCounter() (int64, error) {
 	return d.counter, nil
 }

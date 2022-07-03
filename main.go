@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	p := kvass.NewDummyPersistance()
+	p, _ := kvass.NewSqlitePersistance("test.sqlite")
 	for i := 0; i < 100; i += 1 {
 		err := kvass.Set(p, "test", fmt.Sprint(i))
 		if err != nil {

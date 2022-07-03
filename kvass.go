@@ -31,7 +31,11 @@ func GetUpdatesFrom(hostname string) (result []kvass.KvEntry, err error) {
 
 }
 func getPersistance(options map[string]string) kvass.Persistance {
-	p := kvass.NewDummyPersistance()
+	//p := kvass.NewDummyPersistance()
+	p, err := kvass.NewSqlitePersistance("kvass.sqlite")
+	if err != nil {
+		panic(err)
+	}
 	return p
 }
 func main() {
@@ -41,6 +45,7 @@ func main() {
 		WithAction(func(args []string, options map[string]string) int {
 			key := args[0]
 			p := getPersistance(options)
+			defer p.Close()
 			updates, err := GetUpdatesFrom("http://localhost:8000/pull")
 			if err != nil {
 				logger.Println("Couldn't get updates from server. ", err.Error())
@@ -67,6 +72,7 @@ func main() {
 		WithAction(func(args []string, options map[string]string) int {
 			key := args[0]
 			p := getPersistance(options)
+			defer p.Close()
 
 			var err error
 			var val string
@@ -97,7 +103,7 @@ func main() {
 
 			resp, err := http.DefaultClient.Post("http://localhost:8000/push", "application/json", bytes.NewReader(payload))
 			if err != nil || resp.StatusCode != 200 {
-				logger.Panicln("Error posting update to server: ", err.Error())
+				logger.Println("Error posting update to server: ", err.Error())
 				return 1
 			}
 			return 0
@@ -105,7 +111,8 @@ func main() {
 
 	serve := cli.NewCommand("serve", "start in server mode").
 		WithAction(func(args []string, options map[string]string) int {
-			p := kvass.NewDummyPersistance()
+			p := getPersistance(options)
+			defer p.Close()
 			kvass.RunServer(p)
 			return 0
 		})
