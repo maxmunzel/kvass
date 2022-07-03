@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 )
 
 func GetUpdatesFrom(hostname string) (result []kvass.KvEntry, err error) {
@@ -31,8 +32,18 @@ func GetUpdatesFrom(hostname string) (result []kvass.KvEntry, err error) {
 
 }
 func getPersistance(options map[string]string) kvass.Persistance {
-	//p := kvass.NewDummyPersistance()
-	p, err := kvass.NewSqlitePersistance("kvass.sqlite")
+	dbpath, contains := options["db"]
+	if !contains {
+
+		defaultFilename := ".kvassdb.sqlite"
+		home, err := os.UserHomeDir()
+		if err != nil {
+			panic(err)
+		}
+		dbpath = path.Join(home, defaultFilename)
+	}
+
+	p, err := kvass.NewSqlitePersistance(dbpath)
 	if err != nil {
 		panic(err)
 	}
@@ -124,6 +135,7 @@ func main() {
 
 	app := cli.New("kvass - a personal KV store").
 		WithArg(cli.NewArg("host", "the server to sync with").AsOptional()).
+		WithOption(cli.NewOption("db", "the database file to use (default: ~/.kvassdb.sqlite")).
 		WithCommand(get).
 		WithCommand(set).
 		WithCommand(serve)
