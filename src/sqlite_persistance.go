@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	_ "modernc.org/sqlite"
-	"strings"
+	"os"
 )
 
 type SqlitePersistance struct {
@@ -47,18 +47,6 @@ func (s *SqlitePersistance) commitState() error {
 	return tx.Commit()
 }
 
-func unsafeTableExists(db *sql.DB, name string) (bool, error) {
-	rows, err := db.Query("select * from " + name + " limit 1;") // dont run on untrusted input
-	defer rows.Close()
-	if err == nil {
-		return true, rows.Close()
-	}
-	if strings.Contains(err.Error(), "SQL logic error: no such table") {
-		return false, rows.Close()
-	}
-	return false, err
-}
-
 func (s *SqlitePersistance) Close() error {
 	return s.db.Close()
 }
@@ -71,21 +59,13 @@ func NewSqlitePersistance(path string) (*SqlitePersistance, error) {
 
 	// check if DB has the expected tables
 
-	dbIsInitialized := true
-	for _, table := range []string{"entries", "state"} {
-		exists, err := unsafeTableExists(db, table)
-		if err != nil {
-			return nil, err
-		}
-		dbIsInitialized = dbIsInitialized && exists
-	}
-
 	persistance := &SqlitePersistance{
 		path: path,
 		db:   db,
 	}
 
-	if dbIsInitialized {
+	if _, err := os.Stat("path"); err == nil {
+
 		// load state and return
 		row := db.QueryRow("select * from state;")
 		var state_json []byte
@@ -153,7 +133,6 @@ func (s *SqlitePersistance) UpdateOn(entry KvEntry) error {
 	err = row.Scan(&oldEntry.Key, &oldEntry.Value, &oldEntry.TimestampUnixMicro, &oldEntry.ProcessID, &oldEntry.Counter)
 	if err != nil {
 		// no result
-		println(err.Error())
 		oldEntry = entry
 	}
 
@@ -178,13 +157,14 @@ func (s *SqlitePersistance) UpdateOn(entry KvEntry) error {
 	return tx.Commit()
 }
 func (s *SqlitePersistance) GetValue(key string) (ValueType, error) {
-	row := s.db.QueryRow("select value from entries order by timestamp desc, pid desc, counter desc limit 1;")
+	row := s.db.QueryRow("select value from entries where key=? order by timestamp desc, pid desc, counter desc limit 1;", key)
 	var value ValueType
 	err := row.Scan(&value)
 	if err != nil {
-		// no result
-		println(err.Error())
-		return "", nil
+		if err.Error() == "sql: no rows in result set" {
+			return "", nil
+		}
+		return "", err
 	}
 	return value, nil
 }
