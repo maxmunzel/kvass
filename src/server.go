@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-func RunServer(p Persistance) {
+func RunServer(p Persistance, bind string) {
 	p.GetProcessID()
 	http.HandleFunc("/push", func(w http.ResponseWriter, r *http.Request) {
 		payload, err := ioutil.ReadAll(r.Body)
@@ -42,5 +42,5 @@ func RunServer(p Persistance) {
 
 		w.Write(payload)
 	})
-	http.ListenAndServe("127.0.0.1:8000", nil)
+	http.ListenAndServe(bind, nil)
 }
