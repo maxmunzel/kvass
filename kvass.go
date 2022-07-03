@@ -12,12 +12,16 @@ import (
 	"path"
 )
 
-func GetUpdatesFrom(hostname string) (result []kvass.KvEntry, err error) {
+func GetUpdatesFrom(hostname string, p *kvass.SqlitePersistance) (result []kvass.KvEntry, err error) {
 	resp, err := http.Get(hostname)
 	if err != nil {
 		return nil, err
 	}
 	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	body, err = p.DecryptData(body)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +35,7 @@ func GetUpdatesFrom(hostname string) (result []kvass.KvEntry, err error) {
 	return result, nil
 
 }
-func getPersistance(options map[string]string) kvass.Persistance {
+func getPersistance(options map[string]string) *kvass.SqlitePersistance {
 	dbpath, contains := options["db"]
 	if !contains {
 
@@ -57,9 +61,9 @@ func main() {
 			key := args[0]
 			p := getPersistance(options)
 			defer p.Close()
-			updates, err := GetUpdatesFrom("http://localhost:8000/pull")
+			updates, err := GetUpdatesFrom("http://localhost:8000/pull", p)
 			if err != nil {
-				logger.Println("Couldn't get updates from server. ", err.Error())
+				logger.Println("Couldn't get updates from server. ", err)
 			} else {
 
 				for _, u := range updates {
@@ -111,10 +115,14 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
+			payload, err = p.Encrypt(payload)
+			if err != nil {
+				panic(err)
+			}
 
 			resp, err := http.DefaultClient.Post("http://localhost:8000/push", "application/json", bytes.NewReader(payload))
 			if err != nil || resp.StatusCode != 200 {
-				logger.Println("Error posting update to server: ", err.Error())
+				logger.Println("Error posting update to server: ", err)
 				return 1
 			}
 			return 0

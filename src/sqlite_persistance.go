@@ -71,7 +71,7 @@ func NewSqlitePersistance(path string) (*SqlitePersistance, error) {
 		db:   db,
 	}
 
-	if _, err := os.Stat("path"); err == nil {
+	if _, err := os.Stat(path); err == nil {
 
 		// load state and return
 		row := db.QueryRow("select * from state;")
@@ -163,7 +163,8 @@ func (s *SqlitePersistance) Encrypt(data []byte) ([]byte, error) {
 
 	ciphertext := gcm.Seal(nil, nonce, data, nil)
 
-	return append(nonce, ciphertext...), nil
+	result := append(nonce, ciphertext...)
+	return result, nil
 
 }
 func (s *SqlitePersistance) GetProcessID() (int, error) {

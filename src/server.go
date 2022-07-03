@@ -6,10 +6,15 @@ import (
 	"net/http"
 )
 
-func RunServer(p Persistance, bind string) {
+func RunServer(p *SqlitePersistance, bind string) {
 	p.GetProcessID()
 	http.HandleFunc("/push", func(w http.ResponseWriter, r *http.Request) {
 		payload, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		payload, err = p.DecryptData(payload)
 		if err != nil {
 			http.Error(w, err.Error(), 400)
 			return
@@ -34,6 +39,11 @@ func RunServer(p Persistance, bind string) {
 			return
 		}
 		payload, err := json.MarshalIndent(updates, "", " ")
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		payload, err = p.Encrypt(payload)
 
 		if err != nil {
 			http.Error(w, err.Error(), 500)
@@ -42,5 +52,5 @@ func RunServer(p Persistance, bind string) {
 
 		w.Write(payload)
 	})
-	http.ListenAndServe(bind, nil)
+	panic(http.ListenAndServe(bind, nil))
 }
