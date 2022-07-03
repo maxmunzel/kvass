@@ -112,12 +112,7 @@ func NewSqlitePersistance(path string) (*SqlitePersistance, error) {
 	return persistance, nil
 }
 
-type EncryptedData struct {
-	dataHex  string
-	nonceHex string
-}
-
-func (s *SqlitePersistance) DecryptData(data *EncryptedData) ([]byte, error) {
+func (s *SqlitePersistance) DecryptData(data []byte) ([]byte, error) {
 	key, err := hex.DecodeString(s.state.Key)
 	if err != nil {
 		return nil, err
@@ -136,18 +131,12 @@ func (s *SqlitePersistance) DecryptData(data *EncryptedData) ([]byte, error) {
 		return nil, err
 	}
 
-	ciphertext, err := hex.DecodeString(data.dataHex)
-	if err != nil {
-		return nil, err
-	}
-	nonce, err := hex.DecodeString(data.nonceHex)
-	if err != nil {
-		return nil, err
-	}
+	nonce := data[:gcm.NonceSize()]
+	ciphertext := data[gcm.NonceSize():]
 
 	return gcm.Open(nil, nonce, ciphertext, nil)
 }
-func (s *SqlitePersistance) Encrypt(data []byte) (*EncryptedData, error) {
+func (s *SqlitePersistance) Encrypt(data []byte) ([]byte, error) {
 	key, err := hex.DecodeString(s.state.Key)
 	if err != nil {
 		return nil, err
@@ -174,7 +163,7 @@ func (s *SqlitePersistance) Encrypt(data []byte) (*EncryptedData, error) {
 
 	ciphertext := gcm.Seal(nil, nonce, data, nil)
 
-	return &EncryptedData{dataHex: hex.EncodeToString(ciphertext), nonceHex: hex.EncodeToString(nonce)}, nil
+	return append(nonce, ciphertext...), nil
 
 }
 func (s *SqlitePersistance) GetProcessID() (int, error) {
