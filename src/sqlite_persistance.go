@@ -1,8 +1,14 @@
 package kvass
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"io"
 	_ "modernc.org/sqlite"
 	"os"
 )
@@ -13,6 +19,7 @@ type SqlitePersistance struct {
 	state struct {
 		Counter int64
 		Pid     int
+		Key     string
 	}
 }
 
@@ -80,6 +87,7 @@ func NewSqlitePersistance(path string) (*SqlitePersistance, error) {
 		}
 
 	} else {
+		// init DB
 		_, err := db.Exec(`
         create table if not exists entries (key, value, timestamp, pid, counter); 
         create table if not exists state   (state);`)
@@ -87,6 +95,15 @@ func NewSqlitePersistance(path string) (*SqlitePersistance, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		// generate key
+		key := make([]byte, 32)
+		_, err = io.ReadFull(rand.Reader, key)
+		if err != nil {
+			return nil, err
+		}
+		persistance.state.Key = hex.EncodeToString(key)
+
 		err = persistance.commitState()
 		if err != nil {
 			return nil, err
@@ -95,6 +112,71 @@ func NewSqlitePersistance(path string) (*SqlitePersistance, error) {
 	return persistance, nil
 }
 
+type EncryptedData struct {
+	dataHex  string
+	nonceHex string
+}
+
+func (s *SqlitePersistance) DecryptData(data *EncryptedData) ([]byte, error) {
+	key, err := hex.DecodeString(s.state.Key)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(key) != 32 {
+		return nil, errors.New("Invalid key length.")
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	ciphertext, err := hex.DecodeString(data.dataHex)
+	if err != nil {
+		return nil, err
+	}
+	nonce, err := hex.DecodeString(data.nonceHex)
+	if err != nil {
+		return nil, err
+	}
+
+	return gcm.Open(nil, nonce, ciphertext, nil)
+}
+func (s *SqlitePersistance) Encrypt(data []byte) (*EncryptedData, error) {
+	key, err := hex.DecodeString(s.state.Key)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(key) != 32 {
+		return nil, errors.New("Invalid key length.")
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	nonce := make([]byte, gcm.NonceSize())
+	_, err = io.ReadFull(rand.Reader, nonce)
+	if err != nil {
+		return nil, err
+	}
+
+	ciphertext := gcm.Seal(nil, nonce, data, nil)
+
+	return &EncryptedData{dataHex: hex.EncodeToString(ciphertext), nonceHex: hex.EncodeToString(nonce)}, nil
+
+}
 func (s *SqlitePersistance) GetProcessID() (int, error) {
 	return s.state.Pid, nil
 }
