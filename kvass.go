@@ -13,7 +13,7 @@ import (
 )
 
 func GetUpdatesFrom(hostname string, p *kvass.SqlitePersistance) (result []kvass.KvEntry, err error) {
-	resp, err := http.Get(hostname)
+	resp, err := http.Get(hostname + "/pull")
 	if err != nil {
 		return nil, err
 	}
@@ -59,9 +59,13 @@ func main() {
 		WithArg(cli.NewArg("key", "the key to get")).
 		WithAction(func(args []string, options map[string]string) int {
 			key := args[0]
+			host := options["host"]
+			if host == "" {
+				host = "http://localhost:8000"
+			}
 			p := getPersistance(options)
 			defer p.Close()
-			updates, err := GetUpdatesFrom("http://localhost:8000/pull", p)
+			updates, err := GetUpdatesFrom(host, p)
 			if err != nil {
 				logger.Println("Couldn't get updates from server. ", err)
 			} else {
@@ -86,6 +90,11 @@ func main() {
 		WithArg(cli.NewArg("value", "the value to set (ommit for stdin)").AsOptional()).
 		WithAction(func(args []string, options map[string]string) int {
 			key := args[0]
+			host := options["host"]
+			if host == "" {
+				host = "http://localhost:8000"
+			}
+
 			p := getPersistance(options)
 			defer p.Close()
 
@@ -120,7 +129,7 @@ func main() {
 				panic(err)
 			}
 
-			resp, err := http.DefaultClient.Post("http://localhost:8000/push", "application/json", bytes.NewReader(payload))
+			resp, err := http.DefaultClient.Post(host+"/push", "application/json", bytes.NewReader(payload))
 			if err != nil || resp.StatusCode != 200 {
 				logger.Println("Error posting update to server: ", err)
 				return 1
@@ -142,7 +151,7 @@ func main() {
 		})
 
 	app := cli.New("kvass - a personal KV store").
-		WithArg(cli.NewArg("host", "the server to sync with").AsOptional()).
+		WithOption(cli.NewOption("host", "the server to sync with")).
 		WithOption(cli.NewOption("db", "the database file to use (default: ~/.kvassdb.sqlite")).
 		WithCommand(get).
 		WithCommand(set).
