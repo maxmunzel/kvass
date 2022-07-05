@@ -9,18 +9,23 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"io/ioutil"
 	_ "modernc.org/sqlite"
+	"net/http"
 	"os"
 )
+
+type SqliteState struct {
+	Counter        int64
+	Pid            int
+	Key            string
+	RemoteHostname string
+}
 
 type SqlitePersistance struct {
 	path  string
 	db    *sql.DB
-	state struct {
-		Counter int64
-		Pid     int
-		Key     string
-	}
+	State SqliteState
 }
 
 func panicIfNonNil(err error) {
@@ -29,9 +34,41 @@ func panicIfNonNil(err error) {
 	}
 }
 
-func (s *SqlitePersistance) commitState() error {
+func (p *SqlitePersistance) GetRemoteUpdates() (err error) {
+	if p.State.RemoteHostname == "" {
+		return nil
+	}
+	resp, err := http.Get("http://" + p.State.RemoteHostname + "/pull")
+	if err != nil {
+		return err
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	body, err = p.DecryptData(body)
+	if err != nil {
+		return err
+	}
+
+	updates := make([]KvEntry, 0)
+	err = json.Unmarshal(body, &updates)
+	if err != nil {
+		return err
+	}
+
+	for _, u := range updates {
+		err = p.UpdateOn(u)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+
+}
+func (s *SqlitePersistance) CommitState() error {
 	// saves the internal state to the sqlite db
-	state, err := json.MarshalIndent(&s.state, "", " ")
+	state, err := json.MarshalIndent(&s.State, "", " ")
 	if err != nil {
 		return err
 	}
@@ -81,7 +118,7 @@ func NewSqlitePersistance(path string) (*SqlitePersistance, error) {
 			return nil, err
 		}
 
-		err = json.Unmarshal(state_json, &persistance.state)
+		err = json.Unmarshal(state_json, &persistance.State)
 		if err != nil {
 			return nil, err
 		}
@@ -102,9 +139,9 @@ func NewSqlitePersistance(path string) (*SqlitePersistance, error) {
 		if err != nil {
 			return nil, err
 		}
-		persistance.state.Key = hex.EncodeToString(key)
+		persistance.State.Key = hex.EncodeToString(key)
 
-		err = persistance.commitState()
+		err = persistance.CommitState()
 		if err != nil {
 			return nil, err
 		}
@@ -113,7 +150,7 @@ func NewSqlitePersistance(path string) (*SqlitePersistance, error) {
 }
 
 func (s *SqlitePersistance) DecryptData(data []byte) ([]byte, error) {
-	key, err := hex.DecodeString(s.state.Key)
+	key, err := hex.DecodeString(s.State.Key)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +174,7 @@ func (s *SqlitePersistance) DecryptData(data []byte) ([]byte, error) {
 	return gcm.Open(nil, nonce, ciphertext, nil)
 }
 func (s *SqlitePersistance) Encrypt(data []byte) ([]byte, error) {
-	key, err := hex.DecodeString(s.state.Key)
+	key, err := hex.DecodeString(s.State.Key)
 	if err != nil {
 		return nil, err
 	}
@@ -168,10 +205,10 @@ func (s *SqlitePersistance) Encrypt(data []byte) ([]byte, error) {
 
 }
 func (s *SqlitePersistance) GetProcessID() (int, error) {
-	return s.state.Pid, nil
+	return s.State.Pid, nil
 }
 func (s *SqlitePersistance) GetCounter() (int64, error) {
-	return s.state.Counter, nil
+	return s.State.Counter, nil
 }
 func (s *SqlitePersistance) GetUpdates(time int64) ([]KvEntry, error) {
 	result := make([]KvEntry, 0)
