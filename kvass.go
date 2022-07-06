@@ -7,6 +7,7 @@ import (
 	"fmt"
 	kvass "github.com/maxmunzel/kvass/src"
 	"github.com/teris-io/cli"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -51,7 +52,11 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
-			println(string(val))
+
+			_, err = io.Copy(os.Stdout, bytes.NewBuffer(val))
+			if err != nil {
+				panic(err)
+			}
 			return 0
 		})
 
@@ -65,20 +70,20 @@ func main() {
 			defer p.Close()
 
 			var err error
-			var val string
+			var val kvass.ValueType
 
 			if len(args) < 2 {
 				valBytes, err := ioutil.ReadAll(os.Stdin)
-				val = string(valBytes)
+				val = valBytes
 				if err != nil {
 					panic(err)
 				}
 
 			} else {
-				val = args[1]
+				val = []byte(args[1] + "\n")
 			}
 
-			err = kvass.Set(p, key, val)
+			err = kvass.Set(p, key, []byte(val))
 			if err != nil {
 				panic(err)
 			}

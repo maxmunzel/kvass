@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-type ValueType = string
+type ValueType = []byte
 
 type KvEntry struct {
 	Key                string

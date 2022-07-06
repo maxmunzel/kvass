@@ -271,9 +271,9 @@ func (s *SqlitePersistance) GetValue(key string) (ValueType, error) {
 	err := row.Scan(&value)
 	if err != nil {
 		if err.Error() == "sql: no rows in result set" {
-			return "", nil
+			return make([]byte, 0), nil
 		}
-		return "", err
+		return make([]byte, 0), err
 	}
 	return value, nil
 }
