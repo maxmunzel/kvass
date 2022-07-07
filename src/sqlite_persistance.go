@@ -1,6 +1,7 @@
 package kvass
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -10,16 +11,20 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"math"
+	"math/big"
+	"modernc.org/mathutil"
 	_ "modernc.org/sqlite"
 	"net/http"
 	"os"
 )
 
 type SqliteState struct {
-	Counter        int64
-	Pid            int
+	Counter        uint64
+	Pid            uint32
 	Key            string
 	RemoteHostname string
+	RemoteCounter  uint64
 }
 
 type SqlitePersistance struct {
@@ -38,7 +43,17 @@ func (p *SqlitePersistance) GetRemoteUpdates() (err error) {
 	if p.State.RemoteHostname == "" {
 		return nil
 	}
-	resp, err := http.Get("http://" + p.State.RemoteHostname + "/pull")
+	request, err := json.Marshal(UpdateRequest{ProcessID: p.State.Pid, Counter: p.State.RemoteCounter})
+	if err != nil {
+		return err
+	}
+
+	request, err = p.Encrypt(request)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.Post("http://"+p.State.RemoteHostname+"/pull", "application/json", bytes.NewReader(request))
 	if err != nil {
 		return err
 	}
@@ -132,6 +147,11 @@ func NewSqlitePersistance(path string) (*SqlitePersistance, error) {
 		if err != nil {
 			return nil, err
 		}
+		pid_, err := rand.Int(rand.Reader, big.NewInt(math.MaxUint32))
+		persistance.State.Pid = uint32(pid_.Int64() + 1)
+		if err != nil {
+			panic(err)
+		}
 
 		// generate key
 		key := make([]byte, 32)
@@ -166,6 +186,10 @@ func (s *SqlitePersistance) DecryptData(data []byte) ([]byte, error) {
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(data) < gcm.NonceSize() {
+		return nil, errors.New("Data too short!")
 	}
 
 	nonce := data[:gcm.NonceSize()]
@@ -204,15 +228,21 @@ func (s *SqlitePersistance) Encrypt(data []byte) ([]byte, error) {
 	return result, nil
 
 }
-func (s *SqlitePersistance) GetProcessID() (int, error) {
+func (s *SqlitePersistance) GetProcessID() (uint32, error) {
 	return s.State.Pid, nil
 }
-func (s *SqlitePersistance) GetCounter() (int64, error) {
+func (s *SqlitePersistance) GetCounter() (uint64, error) {
 	return s.State.Counter, nil
 }
-func (s *SqlitePersistance) GetUpdates(time int64) ([]KvEntry, error) {
+
+type UpdateRequest struct {
+	Counter   uint64
+	ProcessID uint32
+}
+
+func (s *SqlitePersistance) GetUpdates(req UpdateRequest) ([]KvEntry, error) {
 	result := make([]KvEntry, 0)
-	rows, err := s.db.Query("select * from entries where timestamp >= ?;", time)
+	rows, err := s.db.Query("select * from entries where counter >= ? and pid != ?;", req.Counter, req.ProcessID)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +268,7 @@ func (s *SqlitePersistance) UpdateOn(entry KvEntry) error {
 	tx, err := s.db.Begin()
 	defer tx.Rollback()
 	var oldEntry KvEntry
-	row := tx.QueryRow("select * from entries order by timestamp desc, pid desc, counter desc limit 1;")
+	row := tx.QueryRow("select * from entries order by timestamp desc, pid desc, counter desc where key = ? limit 1;", entry.Key)
 	err = row.Scan(&oldEntry.Key, &oldEntry.Value, &oldEntry.TimestampUnixMicro, &oldEntry.ProcessID, &oldEntry.Counter)
 	if err != nil {
 		// no result
@@ -246,9 +276,14 @@ func (s *SqlitePersistance) UpdateOn(entry KvEntry) error {
 	}
 
 	// select LUB of old and new entry
+	s.State.RemoteCounter = mathutil.MaxUint64(s.State.RemoteCounter, entry.Counter)
 
 	entry = entry.Max(oldEntry)
 
+	newCounter := mathutil.MaxUint64(entry.Counter, s.State.Counter) + 1
+
+	entry.Counter = newCounter
+	s.State.Counter = newCounter
 	// write back LUB to db
 	_, err = tx.Exec("delete from entries where key = ?;", entry.Key)
 	if err != nil {
@@ -263,7 +298,12 @@ func (s *SqlitePersistance) UpdateOn(entry KvEntry) error {
 		entry.Counter,
 	)
 
-	return tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+	return s.CommitState()
+
 }
 func (s *SqlitePersistance) GetValue(key string) (ValueType, error) {
 	row := s.db.QueryRow("select value from entries where key=? order by timestamp desc, pid desc, counter desc limit 1;", key)

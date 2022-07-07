@@ -6,25 +6,27 @@ import (
 
 type ValueType = []byte
 
+const ResevedProcessID = 0
+
 type KvEntry struct {
 	Key                string
 	Value              ValueType
 	TimestampUnixMicro int64
-	ProcessID          int
-	Counter            int64
+	ProcessID          uint32
+	Counter            uint64
 }
 
 func (e KvEntry) isGreaterOrEqualThan(other KvEntry) bool {
-	if e.Counter > other.Counter {
-		return true
-	}
-	if e.Counter < other.Counter {
-		return false
-	}
 	if e.TimestampUnixMicro > other.TimestampUnixMicro {
 		return true
 	}
 	if e.TimestampUnixMicro < other.TimestampUnixMicro {
+		return false
+	}
+	if e.Counter > other.Counter {
+		return true
+	}
+	if e.Counter < other.Counter {
 		return false
 	}
 
@@ -50,16 +52,7 @@ func (e KvEntry) Max(other KvEntry) KvEntry {
 
 }
 
-type Persistance interface {
-	GetProcessID() (int, error)
-	UpdateOn(entry KvEntry) error
-	GetUpdates(startUnixMicros int64) ([]KvEntry, error)
-	GetValue(key string) (ValueType, error)
-	GetCounter() (int64, error)
-	Close() error
-}
-
-func Set(p Persistance, key string, value ValueType) error {
+func Set(p *SqlitePersistance, key string, value ValueType) error {
 	pid, err := p.GetProcessID()
 	if err != nil {
 		return err

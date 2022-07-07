@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"path"
@@ -94,7 +95,7 @@ func main() {
 			if host == "" {
 				return 0
 			}
-			updates, err := p.GetUpdates(0)
+			updates, err := p.GetUpdates(kvass.UpdateRequest{Counter: p.State.Counter, ProcessID: p.State.Pid})
 			if err != nil {
 				panic(err)
 			}
@@ -171,11 +172,17 @@ func main() {
 	config_pid := cli.NewCommand("pid", "set process id (lower pid wins in case of conflicts").
 		WithArg(cli.NewArg("id", "the new process id.").WithType(cli.TypeInt)).
 		WithAction(func(args []string, options map[string]string) int {
-			pid, err := strconv.Atoi(args[0])
+			pid64, err := strconv.ParseInt(args[0], 10, 64)
+
 			if err != nil {
 				// should never happen, as cli lib does type checking.
 				panic(err)
 			}
+			if pid64 <= 0 || pid64 > math.MaxUint32 {
+				fmt.Println("PID has to be in [", 1, ",", math.MaxUint32, "] (inclusive).")
+				return 1
+			}
+			pid := uint32(pid64)
 
 			p := getPersistance(options)
 			p.State.Pid = pid
@@ -211,7 +218,7 @@ func main() {
 		WithCommand(config_pid)
 
 	app := cli.New("kvass - a personal KV store").
-		WithOption(cli.NewOption("db", "the database file to use (default: ~/.kvassdb.sqlite")).
+		WithOption(cli.NewOption("db", "the database file to use (default: ~/.kvassdb.sqlite)")).
 		WithCommand(get).
 		WithCommand(set).
 		WithCommand(config).

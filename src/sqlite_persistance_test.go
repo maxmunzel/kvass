@@ -40,6 +40,4 @@ func TestUpdates(t *testing.T) {
 		t.Error("unset key had unexpected value")
 	}
 
-	p.GetUpdates(0)
-
 }
