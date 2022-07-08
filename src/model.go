@@ -52,6 +52,9 @@ func (e KvEntry) Max(other KvEntry) KvEntry {
 
 }
 
+func Delete(p *SqlitePersistance, key string) error {
+	return Set(p, key, []byte(""))
+}
 func Set(p *SqlitePersistance, key string, value ValueType) error {
 	pid, err := p.GetProcessID()
 	if err != nil {

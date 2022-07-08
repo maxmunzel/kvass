@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	kvass "github.com/maxmunzel/kvass/src"
 	"github.com/teris-io/cli"
@@ -11,7 +10,6 @@ import (
 	"io/ioutil"
 	"log"
 	"math"
-	"net/http"
 	"os"
 	"path"
 	"strconv"
@@ -110,28 +108,28 @@ func main() {
 				panic(err)
 			}
 
-			// push changes to remote
+			if err = p.Push(); err != nil {
+				fmt.Println("Could not push changes to server: ", err)
+				return 1
+			}
+			return 0
+		})
 
-			host := p.State.RemoteHostname
-			if host == "" {
-				return 0
-			}
-			updates, err := p.GetUpdates(kvass.UpdateRequest{Counter: p.State.RemoteCounter, ProcessID: kvass.ReservedProcessID})
-			if err != nil {
-				panic(err)
-			}
-			payload, err := json.Marshal(updates)
-			if err != nil {
-				panic(err)
-			}
-			payload, err = p.Encrypt(payload)
+	rm := cli.NewCommand("rm", "remove a key").
+		WithArg(cli.NewArg("key", "the key to remove")).
+		WithAction(func(args []string, options map[string]string) int {
+			key := args[0]
+
+			p := getPersistance(options)
+			defer p.Close()
+
+			err := kvass.Delete(p, key)
 			if err != nil {
 				panic(err)
 			}
 
-			resp, err := http.DefaultClient.Post("http://"+host+"/push", "application/json", bytes.NewReader(payload))
-			if err != nil || resp.StatusCode != 200 {
-				logger.Println("Error posting update to server: ", err)
+			if err = p.Push(); err != nil {
+				fmt.Println("Could not push changes to server: ", err)
 				return 1
 			}
 			return 0
@@ -244,6 +242,7 @@ func main() {
 		WithCommand(ls).
 		WithCommand(get).
 		WithCommand(set).
+		WithCommand(rm).
 		WithCommand(config).
 		WithCommand(serve)
 	os.Exit(app.Run(os.Args, os.Stdout))

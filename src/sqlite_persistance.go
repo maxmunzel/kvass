@@ -81,6 +81,34 @@ func (p *SqlitePersistance) GetRemoteUpdates() (err error) {
 	return nil
 
 }
+
+func (p *SqlitePersistance) Push() error {
+	// push changes to remote
+
+	host := p.State.RemoteHostname
+	if host == "" {
+		return nil
+	}
+	updates, err := p.GetUpdates(UpdateRequest{Counter: p.State.RemoteCounter, ProcessID: ReservedProcessID})
+	if err != nil {
+		panic(err)
+	}
+	payload, err := json.Marshal(updates)
+	if err != nil {
+		panic(err)
+	}
+	payload, err = p.Encrypt(payload)
+	if err != nil {
+		panic(err)
+	}
+
+	resp, err := http.DefaultClient.Post("http://"+host+"/push", "application/json", bytes.NewReader(payload))
+	if err != nil || resp.StatusCode != 200 {
+		return errors.New("Error posting update to server: " + err.Error())
+	}
+	return nil
+}
+
 func (s *SqlitePersistance) CommitState() error {
 	// saves the internal state to the sqlite db
 	state, err := json.MarshalIndent(&s.State, "", " ")
@@ -308,7 +336,7 @@ func (s *SqlitePersistance) UpdateOn(entry KvEntry) error {
 func (s *SqlitePersistance) GetKeys() ([]string, error) {
 	result := make([]string, 0)
 
-	rows, err := s.db.Query("select distinct key from entries order by key asc;")
+	rows, err := s.db.Query("select distinct key from entries where length(value) != 0 order by key asc;")
 	if err != nil {
 		return result, err
 	}
@@ -319,9 +347,7 @@ func (s *SqlitePersistance) GetKeys() ([]string, error) {
 		if err != nil {
 			return result, err
 		}
-		if entry != "" {
-			result = append(result, entry)
-		}
+		result = append(result, entry)
 	}
 	return result, nil
 }
