@@ -38,6 +38,27 @@ func getPersistance(options map[string]string) *kvass.SqlitePersistance {
 }
 func main() {
 	logger := log.New(os.Stderr, "", log.Llongfile|log.LstdFlags)
+	ls := cli.NewCommand("ls", "list keys").
+		WithAction(func(args []string, options map[string]string) int {
+			p := getPersistance(options)
+			defer p.Close()
+
+			err := p.GetRemoteUpdates()
+			if err != nil {
+				logger.Println("Couldn't get updates from server. ", err)
+			}
+
+			keys, err := p.GetKeys()
+			if err != nil {
+				panic(err)
+			}
+
+			for _, k := range keys {
+				fmt.Println(k)
+			}
+
+			return 0
+		})
 	get := cli.NewCommand("get", "get a value").
 		WithArg(cli.NewArg("key", "the key to get")).
 		WithAction(func(args []string, options map[string]string) int {
@@ -220,6 +241,7 @@ func main() {
 
 	app := cli.New("kvass - a personal KV store").
 		WithOption(cli.NewOption("db", "the database file to use (default: ~/.kvassdb.sqlite)")).
+		WithCommand(ls).
 		WithCommand(get).
 		WithCommand(set).
 		WithCommand(config).

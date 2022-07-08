@@ -305,6 +305,26 @@ func (s *SqlitePersistance) UpdateOn(entry KvEntry) error {
 	return s.CommitState()
 
 }
+func (s *SqlitePersistance) GetKeys() ([]string, error) {
+	result := make([]string, 0)
+
+	rows, err := s.db.Query("select distinct key from entries order by key asc;")
+	if err != nil {
+		return result, err
+	}
+	var entry string
+
+	for rows.Next() {
+		err := rows.Scan(&entry)
+		if err != nil {
+			return result, err
+		}
+		if entry != "" {
+			result = append(result, entry)
+		}
+	}
+	return result, nil
+}
 func (s *SqlitePersistance) GetValue(key string) (ValueType, error) {
 	row := s.db.QueryRow("select value from entries where key=? order by timestamp desc, pid desc, counter desc limit 1;", key)
 	var value ValueType
