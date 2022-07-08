@@ -95,7 +95,7 @@ func main() {
 			if host == "" {
 				return 0
 			}
-			updates, err := p.GetUpdates(kvass.UpdateRequest{Counter: p.State.Counter, ProcessID: p.State.Pid})
+			updates, err := p.GetUpdates(kvass.UpdateRequest{Counter: p.State.RemoteCounter, ProcessID: kvass.ReservedProcessID})
 			if err != nil {
 				panic(err)
 			}
@@ -179,7 +179,8 @@ func main() {
 				panic(err)
 			}
 			if pid64 <= 0 || pid64 > math.MaxUint32 {
-				fmt.Println("PID has to be in [", 1, ",", math.MaxUint32, "] (inclusive).")
+				// fmt.Println("PID has to be in [1,", math.MaxUint32, "] (inclusive).") // does not compile for 32 bit targets -.-
+				fmt.Println("PID has to be in [1,4294967295] (inclusive).")
 				return 1
 			}
 			pid := uint32(pid64)

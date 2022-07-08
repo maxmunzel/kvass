@@ -6,7 +6,7 @@ import (
 
 type ValueType = []byte
 
-const ResevedProcessID = 0
+const ReservedProcessID = 0
 
 type KvEntry struct {
 	Key                string
