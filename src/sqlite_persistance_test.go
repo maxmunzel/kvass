@@ -17,26 +17,26 @@ func TestUpdates(t *testing.T) {
 		Set(p, "foo", []byte("bar"))
 	}
 
-	val, err := p.GetValue("test")
+	val, err := p.GetEntry("test")
 	if err != nil {
 		t.Errorf(err.Error())
 	}
-	if string(val) != "99" {
+	if string(val.Value) != "99" {
 		t.Error("key did not properly update")
 	}
 
-	val, err = p.GetValue("foo")
+	val, err = p.GetEntry("foo")
 	if err != nil {
 		t.Errorf(err.Error())
 	}
-	if string(val) != "bar" {
+	if string(val.Value) != "bar" {
 		t.Error("key did not properly update")
 	}
-	val, err = p.GetValue("nonexistent")
+	val, err = p.GetEntry("nonexistent")
 	if err != nil {
 		t.Errorf(err.Error())
 	}
-	if string(val) != "" {
+	if val != nil {
 		t.Error("unset key had unexpected value")
 	}
 

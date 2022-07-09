@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"math"
@@ -104,7 +105,7 @@ func (p *SqlitePersistance) Push() error {
 
 	resp, err := http.DefaultClient.Post("http://"+host+"/push", "application/json", bytes.NewReader(payload))
 	if err != nil || resp.StatusCode != 200 {
-		return errors.New("Error posting update to server: " + err.Error())
+		return fmt.Errorf("Error posting update to server: ", err)
 	}
 	return nil
 }
@@ -169,7 +170,7 @@ func NewSqlitePersistance(path string) (*SqlitePersistance, error) {
 	} else {
 		// init DB
 		_, err := db.Exec(`
-        create table if not exists entries (key, value, timestamp, pid, counter); 
+        create table if not exists entries (key, value, timestamp, pid, counter, urltoken); 
         create table if not exists state   (state);`)
 
 		if err != nil {
@@ -278,7 +279,7 @@ func (s *SqlitePersistance) GetUpdates(req UpdateRequest) ([]KvEntry, error) {
 
 	for rows.Next() {
 		var entry KvEntry
-		err = rows.Scan(&entry.Key, &entry.Value, &entry.TimestampUnixMicro, &entry.ProcessID, &entry.Counter)
+		err = rows.Scan(&entry.Key, &entry.Value, &entry.TimestampUnixMicro, &entry.ProcessID, &entry.Counter, &entry.UrlToken)
 		if err != nil {
 			return nil, err
 		}
@@ -297,7 +298,7 @@ func (s *SqlitePersistance) UpdateOn(entry KvEntry) error {
 	defer tx.Rollback()
 	var oldEntry KvEntry
 	row := tx.QueryRow("select * from entries order by timestamp desc, pid desc, counter desc where key = ? limit 1;", entry.Key)
-	err = row.Scan(&oldEntry.Key, &oldEntry.Value, &oldEntry.TimestampUnixMicro, &oldEntry.ProcessID, &oldEntry.Counter)
+	err = row.Scan(&oldEntry.Key, &oldEntry.Value, &oldEntry.TimestampUnixMicro, &oldEntry.ProcessID, &oldEntry.Counter, &oldEntry.UrlToken)
 	if err != nil {
 		// no result
 		oldEntry = entry
@@ -318,12 +319,13 @@ func (s *SqlitePersistance) UpdateOn(entry KvEntry) error {
 		return err
 	}
 
-	_, err = tx.Exec("insert into entries values (?, ?, ?, ?,?);",
+	_, err = tx.Exec("insert into entries values (?, ?, ?, ?, ?, ?);",
 		entry.Key,
 		entry.Value,
 		entry.TimestampUnixMicro,
 		entry.ProcessID,
 		entry.Counter,
+		entry.UrlToken,
 	)
 
 	err = tx.Commit()
@@ -351,15 +353,16 @@ func (s *SqlitePersistance) GetKeys() ([]string, error) {
 	}
 	return result, nil
 }
-func (s *SqlitePersistance) GetValue(key string) (ValueType, error) {
-	row := s.db.QueryRow("select value from entries where key=? order by timestamp desc, pid desc, counter desc limit 1;", key)
-	var value ValueType
-	err := row.Scan(&value)
+func (s *SqlitePersistance) GetEntry(key string) (*KvEntry, error) {
+
+	row := s.db.QueryRow("select * from entries where key = ? order by timestamp desc, pid desc, counter desc limit 1;", key)
+	entry := KvEntry{}
+	err := row.Scan(&entry.Key, &entry.Value, &entry.TimestampUnixMicro, &entry.ProcessID, &entry.Counter, &entry.UrlToken)
 	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
-			return make([]byte, 0), nil
+		if err == sql.ErrNoRows {
+			return nil, nil
 		}
-		return make([]byte, 0), err
+		return nil, err
 	}
-	return value, nil
+	return &entry, nil
 }

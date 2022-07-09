@@ -1,6 +1,8 @@
 package kvass
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"time"
 )
 
@@ -14,6 +16,7 @@ type KvEntry struct {
 	TimestampUnixMicro int64
 	ProcessID          uint32
 	Counter            uint64
+	UrlToken           string
 }
 
 func (e KvEntry) isGreaterOrEqualThan(other KvEntry) bool {
@@ -67,12 +70,19 @@ func Set(p *SqlitePersistance, key string, value ValueType) error {
 		return err
 	}
 
+	url_bytes := make([]byte, 16)
+	_, err = rand.Read(url_bytes)
+	if err != nil {
+		panic(err)
+	}
+
 	err = p.UpdateOn(KvEntry{
 		ProcessID:          pid,
 		TimestampUnixMicro: t,
 		Key:                key,
 		Value:              value,
 		Counter:            count,
+		UrlToken:           base64.RawURLEncoding.EncodeToString(url_bytes),
 	})
 	return err
 

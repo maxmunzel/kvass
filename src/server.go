@@ -1,9 +1,13 @@
 package kvass
 
 import (
+	"bytes"
+	"database/sql"
 	"encoding/json"
+	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 )
 
 func RunServer(p *SqlitePersistance, bind string) {
@@ -71,6 +75,39 @@ func RunServer(p *SqlitePersistance, bind string) {
 		}
 
 		w.Write(response_payload)
+	})
+	http.HandleFunc("/get", func(w http.ResponseWriter, r *http.Request) {
+		file := r.URL.Query().Get("q")
+
+		if file == "" {
+			http.Error(w, "Please specify file", 400)
+			return
+		}
+
+		row := p.db.QueryRow("select key from entries where urltoken = ?;", file)
+		var key string
+		err := row.Scan(&key)
+		if err == sql.ErrNoRows {
+			http.Error(w, "Unknown File", 404)
+			return
+		}
+
+		entry, err := p.GetEntry(key)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+		}
+
+		if entry == nil {
+			http.Error(w, "Aaaaand it's gone", 419) // entry was deleted since we got the key
+			return
+		}
+
+		if strings.HasSuffix(key, ".html") {
+			r.Header.Add("Content-Type", "application/html")
+		}
+
+		io.Copy(w, bytes.NewBuffer(entry.Value))
+
 	})
 	panic(http.ListenAndServe(bind, nil))
 }

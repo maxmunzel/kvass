@@ -68,12 +68,17 @@ func main() {
 			if err != nil {
 				logger.Println("Couldn't get updates from server. ", err)
 			}
-			val, err := p.GetValue(key)
+			val, err := p.GetEntry(key)
 			if err != nil {
 				panic(err)
 			}
 
-			_, err = io.Copy(os.Stdout, bytes.NewBuffer(val))
+			if val == nil {
+				println()
+				return 0 // no entry
+			}
+
+			_, err = io.Copy(os.Stdout, bytes.NewBuffer(val.Value))
 			if err != nil {
 				panic(err)
 			}
@@ -237,12 +242,31 @@ func main() {
 		WithCommand(config_remote).
 		WithCommand(config_pid)
 
+	url := cli.NewCommand("url", "show shareable url of an entry").
+		WithArg(cli.NewArg("key", "the key of your entry")).
+		WithAction(func(args []string, options map[string]string) int {
+			key := args[0]
+			p := getPersistance(options)
+			entry, err := p.GetEntry(key)
+			if err != nil {
+				panic(err)
+			}
+
+			if entry == nil {
+				logger.Fatal("Key not found.")
+			}
+
+			fmt.Println("http://" + p.State.RemoteHostname + "/get?q=" + entry.UrlToken)
+			return 0
+		})
+
 	app := cli.New("kvass - a personal KV store").
 		WithOption(cli.NewOption("db", "the database file to use (default: ~/.kvassdb.sqlite)")).
 		WithCommand(ls).
 		WithCommand(get).
 		WithCommand(set).
 		WithCommand(rm).
+		WithCommand(url).
 		WithCommand(config).
 		WithCommand(serve)
 	os.Exit(app.Run(os.Args, os.Stdout))
