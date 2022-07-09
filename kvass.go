@@ -1,9 +1,12 @@
 package main
 
 import (
+	qr "github.com/skip2/go-qrcode"
+
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/lizebang/qrcode-terminal"
 	kvass "github.com/maxmunzel/kvass/src"
 	"github.com/teris-io/cli"
 	"io"
@@ -186,7 +189,7 @@ func main() {
 			p.State.Key = key_hex
 			err = p.CommitState()
 			if err != nil {
-				fmt.Println("Internal error: ", err.Error)
+				fmt.Println("Internal error: ", err.Error())
 				return 1
 			}
 
@@ -213,7 +216,7 @@ func main() {
 			p.State.Pid = pid
 			err = p.CommitState()
 			if err != nil {
-				fmt.Println("Internal error: ", err.Error)
+				fmt.Println("Internal error: ", err.Error())
 				return 1
 			}
 
@@ -229,7 +232,7 @@ func main() {
 			p.State.RemoteHostname = host
 			err := p.CommitState()
 			if err != nil {
-				fmt.Println("Internal error: ", err.Error)
+				fmt.Println("Internal error: ", err.Error())
 				return 1
 			}
 
@@ -259,6 +262,26 @@ func main() {
 			fmt.Println("http://" + p.State.RemoteHostname + "/get?q=" + entry.UrlToken)
 			return 0
 		})
+	qr := cli.NewCommand("qr", "print shareable qr code of entry to console").
+		WithArg(cli.NewArg("key", "the key of your entry")).
+		WithAction(func(args []string, options map[string]string) int {
+			key := args[0]
+			p := getPersistance(options)
+			entry, err := p.GetEntry(key)
+			if err != nil {
+				panic(err)
+			}
+
+			if entry == nil {
+				logger.Fatal("Key not found.")
+			}
+
+			url := "http://" + p.State.RemoteHostname + "/get?q=" + entry.UrlToken
+
+			qrcode.QRCode(url, qrcode.BrightBlack, qrcode.BrightWhite, qr.Low)
+
+			return 0
+		})
 
 	app := cli.New("kvass - a personal KV store").
 		WithOption(cli.NewOption("db", "the database file to use (default: ~/.kvassdb.sqlite)")).
@@ -267,6 +290,7 @@ func main() {
 		WithCommand(set).
 		WithCommand(rm).
 		WithCommand(url).
+		WithCommand(qr).
 		WithCommand(config).
 		WithCommand(serve)
 	os.Exit(app.Run(os.Args, os.Stdout))
