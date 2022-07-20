@@ -105,7 +105,7 @@ func (p *SqlitePersistance) Push() error {
 
 	resp, err := http.DefaultClient.Post("http://"+host+"/push", "application/json", bytes.NewReader(payload))
 	if err != nil || resp.StatusCode != 200 {
-		return fmt.Errorf("Error posting update to server: ", err)
+		return fmt.Errorf("Error posting update to server: %v", err)
 	}
 	return nil
 }
