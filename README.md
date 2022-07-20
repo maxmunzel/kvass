@@ -1,4 +1,7 @@
-# kvass: A personal key-value store
+# kvass: a personal key-value store
+
+![kvass_small](https://user-images.githubusercontent.com/5411096/179968508-5fe1e390-3136-46a6-bb1e-8d329ad231c3.jpeg)
+
 
 ```bash
 # simple usage
@@ -11,8 +14,8 @@ $ kvass ls
 hello
 
 # store arbitrary files
-$ kvass set kitty < kitty.jpg
-$ kvass get kitty > kitty.jpg
+$ kvass set logo < kvass.jpg
+$ kvass get logo > kvass.jpg
 
 # Its trivial to set up and operate kvass across multiple devices
 
@@ -38,9 +41,20 @@ hello
 $ ssh you@yourserver kvass set hello 👋
 $ kvass get hello
 👋
+![Screen Shot 2022-07-20 at 13 22 30](https://user-images.githubusercontent.com/5411096/179970041-636d7d4b-1587-4018-8446-268a017a16d4.png)
 
+# remember the file we stored earlier? Let's get a shareable url for it!
+$ kvass url logo
+http://demo.maxnagy.com:8000/get?q=OQMwTQmFCz6xiWxFxt4Mkw
+
+# you can also print the corresponding qr code directly to your terminal
+kvass qr logo
+```
+![Screen Shot 2022-07-20 at 13 23 17](https://user-images.githubusercontent.com/5411096/179970204-f1034add-ce07-4f40-b279-0ac25969c069.png)
+
+```
 # run kvass without arguments to get a nice cheat sheet of supported commands
-kvass
+$ kvass
 kvass [--db=string]
 
 Description:
@@ -54,9 +68,9 @@ Sub-commands:
     kvass get      get a value
     kvass set      set a value
     kvass rm       remove a key
+    kvass url      show shareable url of an entry
+    kvass qr       print shareable qr code of entry to console
     kvass config   set config parameters
-    kvass serve    start in server mode
-
     kvass serve    start in server mode
 ```
 
