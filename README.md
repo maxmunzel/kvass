@@ -17,9 +17,8 @@ hello
 $ kvass set logo < kvass.jpg
 $ kvass get logo > kvass.jpg
 
+
 # Its trivial to set up and operate kvass across multiple devices
-
-
 $ ssh you@yourserver.com kvass config show
 
 Encryption Key:  	5abf59f5f1a2f3c998a4f592ce081a23e14a68fd8a792259c6ec0fc1e8fb1246  # <- copy this for the next step
@@ -27,12 +26,11 @@ ProcessID:       	752176921
 Remote:          	(None)
 
 $ kvass config key 5abf59f5f1a2f3c998a4f592ce081a23e14a68fd8a792259c6ec0fc1e8fb1246 # set the same key for all your devices
-$ kvass config remote yourserver.com:8000
+$ kvass config remote yourserver.com:8000 # tell kvass where to find the server instance
 
-# run "kvass serve" on your server using systemd, screen or the init system of your choice. runit, anyone?
+# run "kvass serve" on your server using systemd, screen or the init system of your choice. (runit, anyone?)
 
 # every set will now be broadcasted to the server
-
 $ kvass set "hello from the other side" hello
 $ ssh you@yourserver kvass get "hello from the other side"
 hello
@@ -41,7 +39,8 @@ hello
 $ ssh you@yourserver kvass set hello 👋
 $ kvass get hello
 👋
-![Screen Shot 2022-07-20 at 13 22 30](https://user-images.githubusercontent.com/5411096/179970041-636d7d4b-1587-4018-8446-268a017a16d4.png)
+
+# Good to know: All communication between the client and server is authenticated and encrypted using AES-256 GCM.
 
 # remember the file we stored earlier? Let's get a shareable url for it!
 $ kvass url logo
@@ -83,7 +82,5 @@ go install github.com/maxmunzel/kvass@latest
 
 # Shoutouts
 
-[Charm skate](https://github.com/charmbracelet/skate) -- the inspiration for this tool  
-
-
+[Charm skate](https://github.com/charmbracelet/skate) -- the inspiration for this tool
 
