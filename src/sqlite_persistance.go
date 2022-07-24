@@ -295,6 +295,9 @@ func (s *SqlitePersistance) GetUpdates(req UpdateRequest) ([]KvEntry, error) {
 func (s *SqlitePersistance) UpdateOn(entry KvEntry) error {
 	// get current entry from db
 	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
 	defer tx.Rollback()
 	var oldEntry KvEntry
 	row := tx.QueryRow("select * from entries order by timestamp desc, pid desc, counter desc where key = ? limit 1;", entry.Key)
@@ -327,6 +330,9 @@ func (s *SqlitePersistance) UpdateOn(entry KvEntry) error {
 		entry.Counter,
 		entry.UrlToken,
 	)
+	if err != nil {
+		return err
+	}
 
 	err = tx.Commit()
 	if err != nil {
