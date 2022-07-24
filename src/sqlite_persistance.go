@@ -34,12 +34,6 @@ type SqlitePersistance struct {
 	State SqliteState
 }
 
-func panicIfNonNil(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
 func (p *SqlitePersistance) GetRemoteUpdates() (err error) {
 	if p.State.RemoteHostname == "" {
 		return nil
