@@ -294,7 +294,7 @@ func (s *SqlitePersistance) UpdateOn(entry KvEntry) error {
 	}
 	defer tx.Rollback()
 	var oldEntry KvEntry
-	row := tx.QueryRow("select * from entries order by timestamp desc, pid desc, counter desc where key = ? limit 1;", entry.Key)
+	row := tx.QueryRow("select * from entries order by timestamp desc, counter desc, pid asc where key = ? limit 1;", entry.Key)
 	err = row.Scan(&oldEntry.Key, &oldEntry.Value, &oldEntry.TimestampUnixMicro, &oldEntry.ProcessID, &oldEntry.Counter, &oldEntry.UrlToken)
 	if err != nil {
 		// no result
