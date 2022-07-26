@@ -20,6 +20,8 @@ type KvEntry struct {
 }
 
 func (e KvEntry) isGreaterOrEqualThan(other KvEntry) bool {
+	// compares two KvEntrys based on their (time, counter, - pid) tuple
+
 	if e.TimestampUnixMicro > other.TimestampUnixMicro {
 		return true
 	}
@@ -41,10 +43,8 @@ func (e KvEntry) isGreaterOrEqualThan(other KvEntry) bool {
 		return false
 	}
 
-	if e.Counter > other.Counter {
-		return true
-	}
-	return false
+	// non of the fields differ -> they are equal
+	return true
 }
 
 func (e KvEntry) Max(other KvEntry) KvEntry {
