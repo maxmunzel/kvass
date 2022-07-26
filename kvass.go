@@ -144,11 +144,11 @@ func main() {
 		})
 
 	serve := cli.NewCommand("serve", "start in server mode").
-		WithOption(cli.NewOption("bind", "bind address (default: localhost:8000)")).
+		WithOption(cli.NewOption("bind", "bind address (default: \"0.0.0.0:8000\" meaning all interfaces, port 8000)")).
 		WithAction(func(args []string, options map[string]string) int {
 			bind, contains := options["bind"]
 			if !contains {
-				bind = "127.0.0.1:8000"
+				bind = "0.0.0.0:8000"
 			}
 			p := getPersistance(options)
 			defer p.Close()

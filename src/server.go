@@ -6,12 +6,15 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"os"
 	"strings"
 )
 
 func RunServer(p *SqlitePersistance, bind string) {
-	p.GetProcessID()
+	logger := log.New(os.Stdout, "", log.LstdFlags)
+
 	http.HandleFunc("/push", func(w http.ResponseWriter, r *http.Request) {
 		payload, err := ioutil.ReadAll(r.Body)
 		if err != nil {
@@ -109,5 +112,7 @@ func RunServer(p *SqlitePersistance, bind string) {
 		io.Copy(w, bytes.NewBuffer(entry.Value))
 
 	})
+
+	logger.Printf("Server started and listening on %v\n", bind)
 	panic(http.ListenAndServe(bind, nil))
 }
