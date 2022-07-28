@@ -98,7 +98,7 @@ func main() {
 			defer p.Close()
 
 			var err error
-			var val kvass.ValueType
+			var val []byte
 
 			if len(args) < 2 {
 				valBytes, err := ioutil.ReadAll(os.Stdin)

@@ -6,17 +6,17 @@ import (
 	"time"
 )
 
-type ValueType = []byte
-
 const ReservedProcessID = 0
 
 type KvEntry struct {
-	Key                string
-	Value              ValueType
+	Key      string
+	Value    []byte // empty slice means key deleted
+	UrlToken string // random token used for url
+
+	// The following fields are used for state merging
 	TimestampUnixMicro int64
-	ProcessID          uint32
-	Counter            uint64
-	UrlToken           string
+	ProcessID          uint32 // randomly chosen for each node
+	Counter            uint64 // lamport clock
 }
 
 func (e KvEntry) isGreaterOrEqualThan(other KvEntry) bool {
@@ -58,7 +58,7 @@ func (e KvEntry) Max(other KvEntry) KvEntry {
 func Delete(p *SqlitePersistance, key string) error {
 	return Set(p, key, []byte(""))
 }
-func Set(p *SqlitePersistance, key string, value ValueType) error {
+func Set(p *SqlitePersistance, key string, value []byte) error {
 	pid, err := p.GetProcessID()
 	if err != nil {
 		return err

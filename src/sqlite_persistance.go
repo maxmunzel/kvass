@@ -301,15 +301,19 @@ func (s *SqlitePersistance) UpdateOn(entry KvEntry) error {
 		oldEntry = entry
 	}
 
-	// select LUB of old and new entry
+	// update the remote counter
 	s.State.RemoteCounter = mathutil.MaxUint64(s.State.RemoteCounter, entry.Counter)
 
+	// select LUB of old and new entry
 	entry = entry.Max(oldEntry)
 
+	// update local counter
 	newCounter := mathutil.MaxUint64(entry.Counter, s.State.Counter) + 1
-
-	entry.Counter = newCounter
 	s.State.Counter = newCounter
+
+	// set new entries counter
+	entry.Counter = newCounter
+
 	// write back LUB to db
 	_, err = tx.Exec("delete from entries where key = ?;", entry.Key)
 	if err != nil {
