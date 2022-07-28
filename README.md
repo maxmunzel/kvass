@@ -174,19 +174,19 @@ func (s *SqlitePersistance) UpdateOn(entry KvEntry) error {
     oldEntry := getCurrentEntryFromDB(entry.Key)
 
     // update the remote counter
-	s.State.RemoteCounter = mathutil.MaxUint64(s.State.RemoteCounter, entry.Counter)
+    s.State.RemoteCounter = mathutil.MaxUint64(s.State.RemoteCounter, entry.Counter)
 
-	// select LUB of old and new entry
-	entry = entry.Max(oldEntry) // returns the entry with the greater (time, counter, - pid) tuple
+    // select LUB of old and new entry
+    entry = entry.Max(oldEntry) // returns the entry with the greater (time, counter, - pid) tuple
 
     // update local counter
-	newCounter := mathutil.MaxUint64(entry.Counter, s.State.Counter) + 1
-	s.State.Counter = newCounter
+    newCounter := mathutil.MaxUint64(entry.Counter, s.State.Counter) + 1
+    s.State.Counter = newCounter
 
     // set new entries counter
-	entry.Counter = newCounter
+    entry.Counter = newCounter
 
-	// write back LUB to db
+    // write back LUB to db
 }
 ```
 
