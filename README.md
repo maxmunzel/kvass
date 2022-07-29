@@ -83,7 +83,7 @@ go install github.com/maxmunzel/kvass@latest
 
 TL;DR There is a central server running `kvass serve` with clients
 connected to it. Key-value pairs overwrite each other based on wall
-clock time 99.999% of the time and using lamport clocks in the
+clock time 99.999% of the time and using Lamport clocks in the
 remaining .001% of the time. You can mostly forget about this, as long
 as your clocks are mostly in sync.
 
@@ -118,9 +118,9 @@ The [Wikipedia](https://en.wikipedia.org/wiki/Lamport_timestamp) summarizes them
 >   3. On receiving a message, the counter of the recipient is updated, if necessary, to the greater of its current counter and the timestamp in the received message. The counter is then incremented by 1 before the message is considered received.
 
 In kvass, sending a message means `set`ting a key locally and
-recieving a message means merging a `KvEntry` into the local state.
+receiving a message means merging a `KvEntry` into the local state.
 
-Lamport clocks have a nice property: If an event `a` happens casually
+Lamport clocks have a nice property: If an event `a` happens causally
 after another event `b`, then it follows, that `a.count` > `b.count`:
 
 
@@ -132,7 +132,7 @@ node2                                           ->   rm foo
 count=0                                              count = 3
 ```
 
-node2 updated its counter upon recieving node1's update, so the counter values nicely reflect the fact,
+node2 updated its counter upon receiving node1's update, so the counter values nicely reflect the fact,
 that node2 knew about node1's updates to foo before deleting it. This isn't always helpful though:
 
 ```
@@ -155,7 +155,7 @@ count=0                                       count = 1
 ```
 
 In kvass, we therefore use wall-clock time to resolve conflicts: The most recent action of a user is probably the
-one he intents to persist, independent of the node he triggered it on. Still, we use lamport timestamps to handle
+one he intents to persist, independent of the node he triggered it on. Still, we use Lamport timestamps to handle
 identical timestamps and to keep track of which `KvEntry`s we need to exchange between nodes:
 
 
