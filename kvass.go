@@ -224,7 +224,7 @@ func main() {
 		})
 
 	config_remote := cli.NewCommand("remote", "set remote server").
-		WithArg(cli.NewArg("host", `example: "1.2.3.4:4242", "" means using no remote`)).
+		WithArg(cli.NewArg("host", `example: "http://1.2.3.4:4242" or "https://kvass.hostname.com", "" means using no remote`)).
 		WithAction(func(args []string, options map[string]string) int {
 			host := strings.TrimSpace(args[0])
 
@@ -259,7 +259,7 @@ func main() {
 				logger.Fatal("Key not found.")
 			}
 
-			fmt.Println("http://" + p.State.RemoteHostname + "/get?q=" + entry.UrlToken)
+			fmt.Println(p.State.RemoteHostname + "/get?q=" + entry.UrlToken)
 			return 0
 		})
 	qr := cli.NewCommand("qr", "print shareable qr code of entry to console").
@@ -276,7 +276,7 @@ func main() {
 				logger.Fatal("Key not found.")
 			}
 
-			url := "http://" + p.State.RemoteHostname + "/get?q=" + entry.UrlToken
+			url := p.State.RemoteHostname + "/get?q=" + entry.UrlToken
 
 			qrcode.QRCode(url, qrcode.BrightBlack, qrcode.BrightWhite, qr.Low)
 

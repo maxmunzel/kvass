@@ -48,7 +48,7 @@ func (p *SqlitePersistance) GetRemoteUpdates() (err error) {
 		return err
 	}
 
-	resp, err := http.Post("http://"+p.State.RemoteHostname+"/pull", "application/json", bytes.NewReader(request))
+	resp, err := http.Post(p.State.RemoteHostname+"/pull", "application/json", bytes.NewReader(request))
 	if err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func (p *SqlitePersistance) Push() error {
 		panic(err)
 	}
 
-	resp, err := http.DefaultClient.Post("http://"+host+"/push", "application/json", bytes.NewReader(payload))
+	resp, err := http.DefaultClient.Post(host+"/push", "application/json", bytes.NewReader(payload))
 	if err != nil || resp.StatusCode != 200 {
 		return fmt.Errorf("Error posting update to server: %v", err)
 	}
