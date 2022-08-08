@@ -11,6 +11,7 @@ import (
 	"github.com/teris-io/cli"
 	"io"
 	"io/ioutil"
+	"net/url"
 	"log"
 	"math"
 	"os"
@@ -229,8 +230,15 @@ func main() {
 			host := strings.TrimSpace(args[0])
 
 			p := getPersistance(options)
-			p.State.RemoteHostname = host
-			err := p.CommitState()
+			
+			url, err := url.ParseRequestURI(host)
+			if err != nil {
+				p.State.RemoteHostname = "http://" + host
+			} else {
+				p.State.RemoteHostname = url.String()
+			}
+
+			err = p.CommitState()
 			if err != nil {
 				fmt.Println("Internal error: ", err.Error())
 				return 1
@@ -259,7 +267,7 @@ func main() {
 				logger.Fatal("Key not found.")
 			}
 
-			fmt.Println("http://" + p.State.RemoteHostname + "/get?q=" + entry.UrlToken)
+			fmt.Println(p.State.RemoteHostname + "/get?q=" + entry.UrlToken)
 			return 0
 		})
 	qr := cli.NewCommand("qr", "print shareable qr code of entry to console").
@@ -276,7 +284,7 @@ func main() {
 				logger.Fatal("Key not found.")
 			}
 
-			url := "http://" + p.State.RemoteHostname + "/get?q=" + entry.UrlToken
+			url := p.State.RemoteHostname + "/get?q=" + entry.UrlToken
 
 			qrcode.QRCode(url, qrcode.BrightBlack, qrcode.BrightWhite, qr.Low)
 
