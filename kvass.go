@@ -11,6 +11,7 @@ import (
 	"github.com/teris-io/cli"
 	"io"
 	"io/ioutil"
+	"net/url"
 	"log"
 	"math"
 	"os"
@@ -224,13 +225,20 @@ func main() {
 		})
 
 	config_remote := cli.NewCommand("remote", "set remote server").
-		WithArg(cli.NewArg("host", `example: "http://1.2.3.4:4242" or "https://kvass.hostname.com", "" means using no remote`)).
+		WithArg(cli.NewArg("host", `example: "1.2.3.4:4242", "" means using no remote`)).
 		WithAction(func(args []string, options map[string]string) int {
 			host := strings.TrimSpace(args[0])
 
 			p := getPersistance(options)
-			p.State.RemoteHostname = host
-			err := p.CommitState()
+			
+			url, err := url.ParseRequestURI(host)
+			if err != nil {
+				p.State.RemoteHostname = "http://" + host
+			} else {
+				p.State.RemoteHostname = url.String()
+			}
+
+			err = p.CommitState()
 			if err != nil {
 				fmt.Println("Internal error: ", err.Error())
 				return 1
