@@ -104,7 +104,7 @@ type KvEntry struct {
 	// The following fields are used for state merging
 	TimestampUnixMicro int64
 	ProcessID          uint32 // randomly chosen for each node
-	Counter            uint64 // lamport clock
+	Counter            uint64 // Lamport clock
 }
 ```
 
