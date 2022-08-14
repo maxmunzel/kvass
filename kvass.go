@@ -275,6 +275,12 @@ func main() {
 		WithAction(func(args []string, options map[string]string) int {
 			key := args[0]
 			p := getPersistance(options)
+			defer p.Close()
+
+			err := p.GetRemoteUpdates()
+			if err != nil {
+				logger.Println("Couldn't get updates from server. ", err)
+			}
 			entry, err := p.GetEntry(key)
 			if err != nil {
 				panic(err)
