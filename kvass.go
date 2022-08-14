@@ -275,6 +275,8 @@ func main() {
 		WithAction(func(args []string, options map[string]string) int {
 			key := args[0]
 			p := getPersistance(options)
+			defer p.Close()
+
 			entry, err := p.GetEntry(key)
 			if err != nil {
 				panic(err)
