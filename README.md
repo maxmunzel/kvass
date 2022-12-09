@@ -28,7 +28,9 @@ Remote:          	(None)
 $ kvass config key 5abf59f5f1a2f3c998a4f592ce081a23e14a68fd8a792259c6ec0fc1e8fb1246 # set the same key for all your devices
 $ kvass config remote yourserver.com:8000 # tell kvass where to find the server instance
 
-# run "kvass serve" on your server using systemd, screen or the init system of your choice. (runit, anyone?)
+# Run "kvass serve" on your server using systemd, screen or the init system of your choice (runit, anyone?). You can specify the interface and port to host at with [--bind].
+
+$ kvass serve --bind="0.0.0.0:80" # host on the default HTTP port (which means you can generate cleaner URLs - just set your remote no port)
 
 # every set will now be broadcasted to the server
 $ kvass set "hello from the other side" hello
@@ -70,7 +72,7 @@ Sub-commands:
     kvass url      show shareable url of an entry
     kvass qr       print shareable qr code of entry to console
     kvass config   set config parameters
-    kvass serve    start in server mode
+    kvass serve    start in server mode [--bind="ip:port" (default: 0.0.0.0:8000)]
 ```
 
 # Installation
@@ -170,7 +172,7 @@ count=0                                       count = 1               count incr
 The merging of states is actually trivial now:
 ```go
 func (s *SqlitePersistance) UpdateOn(entry KvEntry) error {
-	
+
     oldEntry := getCurrentEntryFromDB(entry.Key)
 
     // update the remote counter

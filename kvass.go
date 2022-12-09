@@ -144,7 +144,7 @@ func main() {
 			return 0
 		})
 
-	serve := cli.NewCommand("serve", "start in server mode").
+	serve := cli.NewCommand("serve", "start in server mode [--bind=\"ip:port\" (default: 0.0.0.0:8000)]").
 		WithOption(cli.NewOption("bind", "bind address (default: \"0.0.0.0:8000\" meaning all interfaces, port 8000)")).
 		WithAction(func(args []string, options map[string]string) int {
 			bind, contains := options["bind"]
