@@ -26,6 +26,7 @@ type SqliteState struct {
 	Key            string
 	RemoteHostname string
 	RemoteCounter  uint64
+	SchemaVersion  uint32
 }
 
 type SqlitePersistance struct {
@@ -68,6 +69,7 @@ func (p *SqlitePersistance) GetRemoteUpdates() (err error) {
 	}
 
 	for _, u := range updates {
+		u.NeedsToBePushed = false
 		err = p.UpdateOn(u)
 		if err != nil {
 			return err
@@ -100,6 +102,13 @@ func (p *SqlitePersistance) Push() error {
 	resp, err := http.DefaultClient.Post("http://"+host+"/push", "application/json", bytes.NewReader(payload))
 	if err != nil || resp.StatusCode != 200 {
 		return fmt.Errorf("Error posting update to server: %v", err)
+	} else {
+		for _, u := range updates {
+			p.db.Exec("update entries set NeedsToBePushed = 0 where key = ?", u.Key)
+			if err != nil {
+				panic(err)
+			}
+		}
 	}
 	return nil
 }
@@ -189,6 +198,20 @@ func NewSqlitePersistance(path string) (*SqlitePersistance, error) {
 			return nil, err
 		}
 	}
+
+	// schema migrations
+	if persistance.State.SchemaVersion == 0 {
+		_, err = db.Exec(`alter table entries add column 'NeedsToBePushed' boolean default true;`)
+		if err != nil {
+			return nil, err
+		}
+
+		persistance.State.SchemaVersion = 1
+		err = persistance.CommitState()
+		if err != nil {
+			return nil, err
+		}
+	}
 	return persistance, nil
 }
 
@@ -260,12 +283,12 @@ func (s *SqlitePersistance) GetCounter() (uint64, error) {
 
 type UpdateRequest struct {
 	Counter   uint64
-	ProcessID uint32
+	ProcessID uint32 // ignore updates from this pid
 }
 
 func (s *SqlitePersistance) GetUpdates(req UpdateRequest) ([]KvEntry, error) {
 	result := make([]KvEntry, 0)
-	rows, err := s.db.Query("select * from entries where counter >= ? and pid != ?;", req.Counter, req.ProcessID)
+	rows, err := s.db.Query("select * from entries where counter >= ? and pid != ? and NeedsToBePushed = 1;", req.Counter, req.ProcessID)
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +296,7 @@ func (s *SqlitePersistance) GetUpdates(req UpdateRequest) ([]KvEntry, error) {
 
 	for rows.Next() {
 		var entry KvEntry
-		err = rows.Scan(&entry.Key, &entry.Value, &entry.TimestampUnixMicro, &entry.ProcessID, &entry.Counter, &entry.UrlToken)
+		err = rows.Scan(&entry.Key, &entry.Value, &entry.TimestampUnixMicro, &entry.ProcessID, &entry.Counter, &entry.UrlToken, &entry.NeedsToBePushed)
 		if err != nil {
 			return nil, err
 		}
@@ -295,14 +318,20 @@ func (s *SqlitePersistance) UpdateOn(entry KvEntry) error {
 	defer tx.Rollback()
 	var oldEntry KvEntry
 	row := tx.QueryRow("select * from entries order by timestamp desc, counter desc, pid asc where key = ? limit 1;", entry.Key)
-	err = row.Scan(&oldEntry.Key, &oldEntry.Value, &oldEntry.TimestampUnixMicro, &oldEntry.ProcessID, &oldEntry.Counter, &oldEntry.UrlToken)
+	err = row.Scan(&oldEntry.Key, &oldEntry.Value, &oldEntry.TimestampUnixMicro, &oldEntry.ProcessID, &oldEntry.Counter, &oldEntry.UrlToken, &entry.NeedsToBePushed)
 	if err != nil {
 		// no result
 		oldEntry = entry
 	}
 
-	// update the remote counter
-	s.State.RemoteCounter = mathutil.MaxUint64(s.State.RemoteCounter, entry.Counter)
+	// if the update came from the remote, update the remote counter
+	pid, err := s.GetProcessID()
+	if err != nil {
+		return err
+	}
+	if entry.ProcessID != pid {
+		s.State.RemoteCounter = mathutil.MaxUint64(s.State.RemoteCounter, entry.Counter)
+	}
 
 	// select LUB of old and new entry
 	entry = entry.Max(oldEntry)
@@ -320,13 +349,14 @@ func (s *SqlitePersistance) UpdateOn(entry KvEntry) error {
 		return err
 	}
 
-	_, err = tx.Exec("insert into entries values (?, ?, ?, ?, ?, ?);",
+	_, err = tx.Exec("insert into entries values (?, ?, ?, ?, ?, ?, ?);",
 		entry.Key,
 		entry.Value,
 		entry.TimestampUnixMicro,
 		entry.ProcessID,
 		entry.Counter,
 		entry.UrlToken,
+		entry.NeedsToBePushed,
 	)
 	if err != nil {
 		return err
@@ -361,7 +391,7 @@ func (s *SqlitePersistance) GetEntry(key string) (*KvEntry, error) {
 
 	row := s.db.QueryRow("select * from entries where key = ? order by timestamp desc, pid desc, counter desc limit 1;", key)
 	entry := KvEntry{}
-	err := row.Scan(&entry.Key, &entry.Value, &entry.TimestampUnixMicro, &entry.ProcessID, &entry.Counter, &entry.UrlToken)
+	err := row.Scan(&entry.Key, &entry.Value, &entry.TimestampUnixMicro, &entry.ProcessID, &entry.Counter, &entry.UrlToken, &entry.NeedsToBePushed)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
