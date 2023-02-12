@@ -17,6 +17,7 @@ type KvEntry struct {
 	TimestampUnixMicro int64
 	ProcessID          uint32 // randomly chosen for each node
 	Counter            uint64 // lamport clock
+	NeedsToBePushed    bool
 }
 
 func (e KvEntry) isGreaterOrEqualThan(other KvEntry) bool {
@@ -83,6 +84,7 @@ func Set(p *SqlitePersistance, key string, value []byte) error {
 		Value:              value,
 		Counter:            count,
 		UrlToken:           base64.RawURLEncoding.EncodeToString(url_bytes),
+		NeedsToBePushed:    true,
 	})
 	return err
 
