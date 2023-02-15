@@ -1,3 +1,4 @@
 kvass
 *.json
 .DS_Store
+*.sqlite
