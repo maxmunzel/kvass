@@ -159,9 +159,9 @@ func GetApp() cli.App {
 	config_show := cli.NewCommand("show", "print current config").
 		WithAction(func(args []string, options map[string]string) int {
 			p := getPersistance(options)
-			remote := p.State.RemoteHostname
-			if remote == "" {
-				remote = "(None)"
+			remote := "(None)"
+			if p.State.RemoteURL != nil {
+				remote = p.State.RemoteURL.Host
 			}
 
 			fmt.Printf("Encryption Key:  \t%v\n", p.State.Key)
@@ -232,10 +232,14 @@ func GetApp() cli.App {
 
 			url, err := url.ParseRequestURI(host)
 			if err != nil {
-				p.State.RemoteHostname = "http://" + host
-			} else {
-				p.State.RemoteHostname = url.String()
+				fmt.Println("Invalid url:", err.Error())
+				return 2
 			}
+			if !strings.HasPrefix(url.Scheme, "http") {
+				url.Scheme = "https"
+				fmt.Printf("Warning: only http(s) in URLs is supported, defaulting to https: %s\n", url)
+			}
+			p.State.RemoteURL = url
 
 			err = p.CommitState()
 			if err != nil {
@@ -266,7 +270,11 @@ func GetApp() cli.App {
 				logger.Fatal("Key not found.")
 			}
 
-			fmt.Println(p.State.RemoteHostname + "/get?q=" + entry.UrlToken)
+			u, _ := p.State.RemoteURL.Parse("get") // this should never fail
+			q := u.Query()
+			q.Set("q", entry.UrlToken)
+			u.RawQuery = q.Encode()
+			fmt.Println(u)
 			return 0
 		})
 	qr := cli.NewCommand("qr", "print shareable qr code of entry to console").
@@ -289,9 +297,11 @@ func GetApp() cli.App {
 				logger.Fatal("Key not found.")
 			}
 
-			url := p.State.RemoteHostname + "/get?q=" + entry.UrlToken
-
-			qrcode.QRCode(url, qrcode.BrightBlack, qrcode.BrightWhite, qr.Low)
+			url, _ := p.State.RemoteURL.Parse("get") // this should never fail
+			q := url.Query()
+			q.Set("q", entry.UrlToken)
+			url.RawQuery = q.Encode()
+			qrcode.QRCode(url.String(), qrcode.BrightBlack, qrcode.BrightWhite, qr.Low)
 
 			return 0
 		})

@@ -17,16 +17,17 @@ import (
 	"modernc.org/mathutil"
 	_ "modernc.org/sqlite"
 	"net/http"
+	"net/url"
 	"os"
 )
 
 type SqliteState struct {
-	Counter        uint64
-	Pid            uint32
-	Key            string
-	RemoteHostname string
-	RemoteCounter  uint64
-	SchemaVersion  uint32
+	Counter       uint64
+	Pid           uint32
+	Key           string
+	RemoteURL     *url.URL
+	RemoteCounter uint64
+	SchemaVersion uint32
 }
 
 type SqlitePersistance struct {
@@ -36,7 +37,7 @@ type SqlitePersistance struct {
 }
 
 func (p *SqlitePersistance) GetRemoteUpdates() (err error) {
-	if p.State.RemoteHostname == "" {
+	if p.State.RemoteURL == nil {
 		return nil
 	}
 	request, err := json.Marshal(UpdateRequest{ProcessID: p.State.Pid, Counter: p.State.RemoteCounter})
@@ -49,7 +50,8 @@ func (p *SqlitePersistance) GetRemoteUpdates() (err error) {
 		return err
 	}
 
-	resp, err := http.Post(p.State.RemoteHostname+"/pull", "application/json", bytes.NewReader(request))
+	pull, _ := p.State.RemoteURL.Parse("pull") // this should never fail
+	resp, err := http.Post(pull.String(), "application/json", bytes.NewReader(request))
 	if err != nil {
 		return err
 	}
@@ -81,9 +83,7 @@ func (p *SqlitePersistance) GetRemoteUpdates() (err error) {
 
 func (p *SqlitePersistance) Push() error {
 	// push changes to remote
-
-	host := p.State.RemoteHostname
-	if host == "" {
+	if p.State.RemoteURL == nil {
 		return nil
 	}
 	updates, err := p.GetUpdates(UpdateRequest{Counter: p.State.RemoteCounter, ProcessID: ReservedProcessID})
@@ -99,7 +99,8 @@ func (p *SqlitePersistance) Push() error {
 		panic(err)
 	}
 
-	resp, err := http.DefaultClient.Post(host+"/push", "application/json", bytes.NewReader(payload))
+	push, _ := p.State.RemoteURL.Parse("push") // this should never fail
+	resp, err := http.DefaultClient.Post(push.String(), "application/json", bytes.NewReader(payload))
 	if err != nil || resp.StatusCode != 200 {
 		return fmt.Errorf("Error posting update to server: %v", err)
 	} else {
@@ -173,7 +174,7 @@ func NewSqlitePersistance(path string) (*SqlitePersistance, error) {
 	} else {
 		// init DB
 		_, err := db.Exec(`
-        create table if not exists entries (key, value, timestamp, pid, counter, urltoken); 
+        create table if not exists entries (key, value, timestamp, pid, counter, urltoken);
         create table if not exists state   (state);`)
 
 		if err != nil {
