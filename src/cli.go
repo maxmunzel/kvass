@@ -231,15 +231,26 @@ func GetApp() cli.App {
 			p := getPersistance(options)
 
 			url, err := url.ParseRequestURI(host)
-			if err != nil {
-				fmt.Println("Invalid url:", err.Error())
-				return 2
+			if err == nil {
+				// url parsed fine, use it
+				// ensure it's http(s)
+				if !strings.HasPrefix(url.Scheme, "http") {
+					url.Scheme = "https"
+					fmt.Println("Warning: only http(s) in URLs is supported, defaulting to https: ", url)
+				}
+				// ensure there's a terminal /
+				// note that this doesn't handle the escaped path or the raw path
+				if url.Path != "" && !strings.HasSuffix(url.Path, "/") {
+					url.Path += "/"
+				}
+				p.State.RemoteURL = url
+			} else {
+				// only warn if the user isn't intentionally unsetting the remote
+				if host != "" {
+					fmt.Println("Invalid url, unsetting remote: ", err.Error())
+				}
+				p.State.RemoteURL = url
 			}
-			if !strings.HasPrefix(url.Scheme, "http") {
-				url.Scheme = "https"
-				fmt.Printf("Warning: only http(s) in URLs is supported, defaulting to https: %s\n", url)
-			}
-			p.State.RemoteURL = url
 
 			err = p.CommitState()
 			if err != nil {
